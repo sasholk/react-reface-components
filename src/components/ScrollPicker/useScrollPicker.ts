@@ -4,22 +4,42 @@ import { generateDateItems } from "./utils";
 import type { PickerColumn, ScrollPickerProps } from "./types";
 
 const ITEM_HEIGHT = 48;
+const PREV_DAYS = 6;
 
 export const useScrollPicker = (onSubmit?: ScrollPickerProps["onSubmit"]) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const columnData = useMemo(
     () => [
-      { id: "date", items: generateDateItems(6, 7) },
-      { id: "hour", items: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] },
-      { id: "minute", items: ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"] },
+      { id: "date", items: generateDateItems(PREV_DAYS, 7) },
+      {
+        id: "hour",
+        items: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
+      },
+      {
+        id: "minute",
+        items: [
+          "00",
+          "05",
+          "10",
+          "15",
+          "20",
+          "25",
+          "30",
+          "35",
+          "40",
+          "45",
+          "50",
+          "55",
+        ],
+      },
       { id: "period", items: ["AM", "PM"] },
     ],
     [],
   );
 
   const columnKeys = ["date", "hour", "minute", "period"];
-  const defaultIndices = [6, 4, 0, 1];
+  const defaultIndices = [PREV_DAYS, 4, 0, 1];
 
   const selectedIndices = useMemo(
     () =>
@@ -109,10 +129,13 @@ export const useScrollPicker = (onSubmit?: ScrollPickerProps["onSubmit"]) => {
   );
 
   const getSelectedValues = () => {
-    return columns.reduce((acc, col) => {
-      acc[col.id] = col.items[col.selectedIndex];
-      return acc;
-    }, {} as Record<string, string>);
+    return columns.reduce(
+      (acc, col) => {
+        acc[col.id] = col.items[col.selectedIndex];
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
   };
 
   const handleConfirm = () => {
@@ -126,7 +149,12 @@ export const useScrollPicker = (onSubmit?: ScrollPickerProps["onSubmit"]) => {
 
     const hour = parseInt(values.hour);
     const minute = parseInt(values.minute);
-    const hour24 = values.period === "PM" && hour !== 12 ? hour + 12 : values.period === "AM" && hour === 12 ? 0 : hour;
+    const hour24 =
+      values.period === "PM" && hour !== 12
+        ? hour + 12
+        : values.period === "AM" && hour === 12
+          ? 0
+          : hour;
 
     selectedDate.setHours(hour24, minute, 0);
 

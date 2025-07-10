@@ -1,4 +1,7 @@
-export const generateDateItems = (pastDays: number = 0, futureDays: number = 7): string[] => {
+export const generateDateItems = (
+  pastDays: number = 0,
+  futureDays: number = 7,
+): string[] => {
   const dates: string[] = [];
   const today = new Date();
 
