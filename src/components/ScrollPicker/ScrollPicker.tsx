@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { generateDateItems } from "../../utils";
 
@@ -14,28 +15,52 @@ interface PickerColumn {
 }
 
 export const ScrollPicker = ({ onSubmit, className }: ScrollPickerProps) => {
-  const [columns, setColumns] = useState<PickerColumn[]>([
-    {
-      id: "date",
-      items: generateDateItems(),
-      selectedIndex: 0,
-    },
-    {
-      id: "hour",
-      items: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
-      selectedIndex: 4,
-    },
-    {
-      id: "minute",
-      items: ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"],
-      selectedIndex: 0,
-    },
-    {
-      id: "period",
-      items: ["AM", "PM"],
-      selectedIndex: 1,
-    },
-  ]);
+  const columnData = useMemo(
+    () => [
+      {
+        id: "date",
+        items: generateDateItems(6, 7),
+      },
+      {
+        id: "hour",
+        items: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
+      },
+      {
+        id: "minute",
+        items: ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"],
+      },
+      {
+        id: "period",
+        items: ["AM", "PM"],
+      },
+    ],
+    [],
+  );
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const selectedIndices = useMemo(() => {
+    const columnKeys = ["date", "hour", "minute", "period"];
+    const defaultIndices = [6, 4, 0, 1];
+    
+    return columnKeys.map((key, index) => {
+      const value = searchParams.get(key);
+      if (value !== null) {
+        const parsed = parseInt(value, 10);
+        return isNaN(parsed) ? defaultIndices[index] : parsed;
+      }
+      return defaultIndices[index];
+    });
+  }, [searchParams]);
+
+  const columns: PickerColumn[] = useMemo(
+    () =>
+      columnData.map((col, index) => ({
+        ...col,
+        selectedIndex: selectedIndices[index] || 0,
+      })),
+    [columnData, selectedIndices],
+  );
 
   const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
   const scrollTimeouts = useRef<(ReturnType<typeof setTimeout> | null)[]>([]);
@@ -53,13 +78,22 @@ export const ScrollPicker = ({ onSubmit, className }: ScrollPickerProps) => {
     });
   }, []);
 
-  const updateSelectedIndex = useCallback((columnIndex: number, newIndex: number) => {
-    setColumns(prev =>
-      prev.map((col, idx) =>
-        idx === columnIndex ? { ...col, selectedIndex: Math.max(0, Math.min(newIndex, col.items.length - 1)) } : col,
-      ),
-    );
-  }, []);
+  const updateSelectedIndex = useCallback(
+    (columnIndex: number, newIndex: number) => {
+      const maxIndex = columnData[columnIndex].items.length - 1;
+      const safeIndex = Math.max(0, Math.min(newIndex, maxIndex));
+      
+      const columnKeys = ["date", "hour", "minute", "period"];
+      const columnKey = columnKeys[columnIndex];
+      
+      const newParams = new URLSearchParams(searchParams);
+      
+      newParams.set(columnKey, safeIndex.toString());
+      
+      setSearchParams(newParams);
+    },
+    [columnData, searchParams, setSearchParams],
+  );
 
   const handleScroll = useCallback(
     (columnIndex: number) => {
@@ -120,25 +154,30 @@ export const ScrollPicker = ({ onSubmit, className }: ScrollPickerProps) => {
 
   const handleConfirm = () => {
     const values = getSelectedValues();
-    console.log("Selected values:", values);
+    const now = new Date();
+    let selectedDate = new Date(now);
 
-    const today = new Date();
-    const [hour, minute] = [parseInt(values.hour), parseInt(values.minute)];
+    if (values.date !== "Today") {
+      selectedDate = new Date(`${values.date} ${now.getFullYear()}`);
+    }
+
+    const hour = parseInt(values.hour);
+    const minute = parseInt(values.minute);
 
     const hour24 = values.period === "PM" && hour !== 12 ? hour + 12 : values.period === "AM" && hour === 12 ? 0 : hour;
 
-    today.setHours(hour24, minute, 0);
+    selectedDate.setHours(hour24, minute, 0);
 
-    console.log("Selected Date and Time:", today.toLocaleString());
+    console.log("Selected Date and Time:", selectedDate.toLocaleString());
 
     if (onSubmit) {
-      onSubmit(today);
+      onSubmit(selectedDate);
     }
   };
 
   return (
     <div className={cn("flex items-center justify-center p-4", className)}>
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+      <div className="bg-card rounded shadow border  p-6 w-full max-w-md">
         <h2 className="text-xl font-semibold text-center mb-6">Select Date & Time</h2>
 
         <div className="relative">
