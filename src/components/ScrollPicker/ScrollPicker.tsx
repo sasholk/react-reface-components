@@ -1,36 +1,45 @@
-import { useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "../../lib/utils";
+import { generateDateItems } from "../../utils";
 
-export interface ScrollPickerProps {
+interface ScrollPickerProps {
   onSubmit?: (dateTime: Date) => void;
   className?: string;
 }
 
-const columns = [
-  {
-    id: "date",
-    items: ["Sun Sep 4", "Mon Sep 5", "Tue Sep 6", "Today", "Thu Sep 8", "Fri Sep 9", "Sat Sep 10"],
-    selectedIndex: 3,
-  },
-  {
-    id: "hour",
-    items: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
-    selectedIndex: 4,
-  },
-  {
-    id: "minute",
-    items: ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"],
-    selectedIndex: 0,
-  },
-  {
-    id: "period",
-    items: ["AM", "PM"],
-    selectedIndex: 1,
-  },
-];
+interface PickerColumn {
+  id: string;
+  items: string[];
+  selectedIndex: number;
+}
 
-export const ScrollPicker = ({ className }: ScrollPickerProps) => {
+export const ScrollPicker = ({ onSubmit, className }: ScrollPickerProps) => {
+  const [columns, setColumns] = useState<PickerColumn[]>([
+    {
+      id: "date",
+      items: generateDateItems(),
+      selectedIndex: 0,
+    },
+    {
+      id: "hour",
+      items: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
+      selectedIndex: 4,
+    },
+    {
+      id: "minute",
+      items: ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"],
+      selectedIndex: 0,
+    },
+    {
+      id: "period",
+      items: ["AM", "PM"],
+      selectedIndex: 1,
+    },
+  ]);
+
   const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const scrollTimeouts = useRef<(ReturnType<typeof setTimeout> | null)[]>([]);
+  const isScrolling = useRef<boolean[]>([]);
 
   const ITEM_HEIGHT = 48;
 
@@ -44,6 +53,64 @@ export const ScrollPicker = ({ className }: ScrollPickerProps) => {
     });
   }, []);
 
+  const updateSelectedIndex = useCallback((columnIndex: number, newIndex: number) => {
+    setColumns(prev =>
+      prev.map((col, idx) =>
+        idx === columnIndex ? { ...col, selectedIndex: Math.max(0, Math.min(newIndex, col.items.length - 1)) } : col,
+      ),
+    );
+  }, []);
+
+  const handleScroll = useCallback(
+    (columnIndex: number) => {
+      const element = columnRefs.current[columnIndex];
+      if (!element || isScrolling.current[columnIndex]) return;
+
+      const scrollTop = element.scrollTop;
+      const newIndex = Math.round(scrollTop / ITEM_HEIGHT);
+
+      updateSelectedIndex(columnIndex, newIndex);
+
+      if (scrollTimeouts.current[columnIndex]) {
+        clearTimeout(scrollTimeouts.current[columnIndex]!);
+      }
+      scrollTimeouts.current[columnIndex] = setTimeout(() => {
+        if (element) {
+          isScrolling.current[columnIndex] = true;
+          element.scrollTo({
+            top: newIndex * ITEM_HEIGHT,
+            behavior: "smooth",
+          });
+
+          setTimeout(() => {
+            isScrolling.current[columnIndex] = false;
+          }, 300);
+        }
+      }, 150);
+    },
+    [updateSelectedIndex],
+  );
+
+  const handleItemClick = useCallback(
+    (columnIndex: number, itemIndex: number) => {
+      const element = columnRefs.current[columnIndex];
+      if (!element) return;
+
+      updateSelectedIndex(columnIndex, itemIndex);
+      isScrolling.current[columnIndex] = true;
+
+      element.scrollTo({
+        top: itemIndex * ITEM_HEIGHT,
+        behavior: "smooth",
+      });
+
+      setTimeout(() => {
+        isScrolling.current[columnIndex] = false;
+      }, 300);
+    },
+    [updateSelectedIndex],
+  );
+
   const getSelectedValues = () => {
     return columns.reduce((acc, column) => {
       acc[column.id] = column.items[column.selectedIndex];
@@ -54,20 +121,18 @@ export const ScrollPicker = ({ className }: ScrollPickerProps) => {
   const handleConfirm = () => {
     const values = getSelectedValues();
     console.log("Selected values:", values);
-  };
 
-  const handleItemClick = (columnIndex: number, itemIndex: number) => {
-    const column = columns[columnIndex];
-    column.selectedIndex = itemIndex;
-    columnRefs.current[columnIndex]!.scrollTop = itemIndex * ITEM_HEIGHT;
-  };
+    const today = new Date();
+    const [hour, minute] = [parseInt(values.hour), parseInt(values.minute)];
 
-  const handleScroll = (columnIndex: number) => {
-    const element = columnRefs.current[columnIndex];
-    if (element) {
-      const scrollTop = element.scrollTop;
-      const selectedIndex = Math.round(scrollTop / ITEM_HEIGHT);
-      columns[columnIndex].selectedIndex = selectedIndex;
+    const hour24 = values.period === "PM" && hour !== 12 ? hour + 12 : values.period === "AM" && hour === 12 ? 0 : hour;
+
+    today.setHours(hour24, minute, 0);
+
+    console.log("Selected Date and Time:", today.toLocaleString());
+
+    if (onSubmit) {
+      onSubmit(today);
     }
   };
 
@@ -97,7 +162,7 @@ export const ScrollPicker = ({ className }: ScrollPickerProps) => {
                     <div className="h-18"></div>
 
                     {column.items.map((item, itemIndex) => (
-                      <button
+                      <div
                         key={itemIndex}
                         className={cn(
                           "h-12 flex items-center justify-center text-lg transition-all duration-200 cursor-pointer select-none relative z-10",
@@ -109,7 +174,7 @@ export const ScrollPicker = ({ className }: ScrollPickerProps) => {
                         onClick={() => handleItemClick(columnIndex, itemIndex)}
                       >
                         {item}
-                      </button>
+                      </div>
                     ))}
 
                     <div className="h-18"></div>
@@ -123,7 +188,7 @@ export const ScrollPicker = ({ className }: ScrollPickerProps) => {
         <div className="flex gap-3 mt-6">
           <button
             onClick={handleConfirm}
-            className="flex-1 px-4 py-2 bg-primary text-white hover:shadow rounded hover:bg-primary/80 transition-colors"
+            className="flex-1 px-4 py-2 bg-primary text-white hover:shadow rounded hover:bg-primary/80 transition-colors transition-shadow"
           >
             Confirm
           </button>
