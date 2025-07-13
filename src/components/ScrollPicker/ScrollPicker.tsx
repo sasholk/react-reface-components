@@ -15,7 +15,7 @@ export const ScrollPicker = ({ onSubmit, className }: ScrollPickerProps) => {
         </h2>
 
         <div className="relative">
-          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-12 bg-gray-100 backdrop-blur-3xl rounded-lg border-y border-gray-200 pointer-events-none z-10" />
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-12 bg-gray-100 rounded-lg border-y border-gray-200 pointer-events-none z-10" />
           <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white to-transparent pointer-events-none z-20" />
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white to-transparent pointer-events-none z-20" />
 
