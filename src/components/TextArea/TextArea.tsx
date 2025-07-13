@@ -10,7 +10,7 @@ export const TextArea = ({
   defaultValue = "",
   onChange,
 }: TextAreaProps) => {
-  const { text, setText, nonLatinText, hasNonLatinChars } = useTextArea({
+  const { text, setText, highlightedText } = useTextArea({
     paramName: "text",
     defaultValue,
     shouldUseUrlParams: true,
@@ -29,7 +29,7 @@ export const TextArea = ({
         onChange={e => setText(e.target.value)}
       />
 
-      {hasNonLatinChars && <NonLatinHighlight text={nonLatinText} />}
+      {text && <NonLatinHighlight highlightedChars={highlightedText} />}
     </div>
   );
 };

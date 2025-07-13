@@ -6,5 +6,8 @@ export interface TextAreaProps {
 }
 
 export interface NonLatinHighlightProps {
-  text: string;
+  highlightedChars: Array<{
+    char: string;
+    isNonLatin: boolean;
+  }>;
 }

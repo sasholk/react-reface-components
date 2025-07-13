@@ -6,6 +6,12 @@ interface UseTextAreaOptions {
   defaultValue?: string;
   shouldUseUrlParams?: boolean;
 }
+
+type HighlightedChar = {
+  char: string;
+  isNonLatin: boolean;
+};
+
 export const useTextArea = (options: UseTextAreaOptions = {}) => {
   const {
     paramName = "text",
@@ -14,45 +20,55 @@ export const useTextArea = (options: UseTextAreaOptions = {}) => {
   } = options;
 
   const [searchParams, setSearchParams] = useSearchParams();
+  const [text, setText] = useState(defaultValue);
+  const [nonLatinText, setNonLatinText] = useState("");
+  const [highlightedText, setHighlightedText] = useState<HighlightedChar[]>([]);
 
-  const getInitialValue = () => {
-    if (shouldUseUrlParams) {
-      return searchParams.get(paramName) || defaultValue;
-    }
-    return defaultValue;
+  const isNonLatinChar = (char: string): boolean => {
+    const nonLatinRegex = /[^a-zA-Z0-9\s\p{P}]/u;
+    return nonLatinRegex.test(char);
   };
 
-  const [text, setText] = useState(getInitialValue());
-  const [nonLatinText, setNonLatinText] = useState("");
+  useEffect(() => {
+    if (shouldUseUrlParams) {
+      const param = searchParams.get(paramName);
+      if (param !== null && param !== text) {
+        setText(param);
+      }
+    }
+  }, [paramName, searchParams, shouldUseUrlParams]);
 
   useEffect(() => {
-    const extractNonLatinChars = (input: string) => {
-      const nonLatinRegex = /[^a-zA-Z0-9\s\p{P}]/gu;
-      const matches = input.match(nonLatinRegex);
-      return matches ? matches.join("") : "";
-    };
+    let nonLatin = "";
+    const highlighted = text.split("").map((char) => {
+      const isNonLatin = isNonLatinChar(char);
+      if (isNonLatin) nonLatin += char;
+      return { char, isNonLatin };
+    });
 
-    setNonLatinText(extractNonLatinChars(text));
+    setHighlightedText(highlighted);
+    setNonLatinText(nonLatin);
   }, [text]);
 
   useEffect(() => {
     const current = searchParams.get(paramName) ?? "";
     if (text !== current) {
-      const nextParams = new URLSearchParams(searchParams);
+      const nextParams = new URLSearchParams(searchParams.toString());
+
       if (text === "") {
         nextParams.delete(paramName);
+      } else {
+        nextParams.set(paramName, text);
       }
-      nextParams.set(paramName, text);
+
       setSearchParams(nextParams, { replace: true });
     }
-  }, [text, searchParams, setSearchParams, paramName]);
-
-  const hasNonLatinChars = nonLatinText.length > 0;
+  }, [text, paramName, setSearchParams]);
 
   return {
     text,
     setText,
     nonLatinText,
-    hasNonLatinChars,
+    highlightedText,
   };
 };
